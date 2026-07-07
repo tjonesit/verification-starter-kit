@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Build a TRUE out-of-distribution faithfulness probe in the contemplative-traditions domain.
+Each item: a short accurate passage about one tradition (family), a faithful claim (supported by
+THE PASSAGE) and a conflict claim (contradicts the passage or misattributes another family's
+teaching). Discipline baked in: (1) every label is checkable from the passage alone — a faithfulness
+test, not a theology quiz; (2) faithful and conflict claims are length-matched so the length
+shortcut is dead; (3) the natural conflict generator is cross-FAMILY misattribution, which is
+exactly Tom's 'different traditions or families.' Hand-audited at creation (the read-your-labels
+rule applied to the author)."""
+import json
+
+# (family, passage, faithful_claim, conflict_claim)
+ITEMS = [
+    ("Kashmir Shaivism",
+     "In Kashmir Shaivism the ultimate reality is the Self, identical with Shiva: pure I-consciousness (aham), utterly affirmed. Its life is spanda, a subtle pulse of contraction and expansion, and its self-awareness is vimarsa.",
+     "This tradition affirms the Self as identical with Shiva, alive as a pulse called spanda.",
+     "This tradition denies any self, teaching that the person is empty of a Shiva-nature."),
+
+    ("Dzogchen",
+     "Dzogchen points to rigpa, the naked knowing that is already present before thought. Its method is self-liberation: a thought, left unaltered, releases itself, like a drawing on water. Nothing needs to be built or attained.",
+     "Here a thought left unaltered frees itself, and rigpa is already present before thought.",
+     "Here liberation is built up gradually by effort, and knowing is attained only after thought."),
+
+    ("Advaita Vedanta",
+     "Advaita Vedanta teaches non-duality: Brahman alone is real, and the individual self (atman) is not different from it. The method neti-neti negates every limited identification until only the witness remains.",
+     "Brahman alone is real here, and the self is not different from it; the method is neti-neti.",
+     "Many independent selves are ultimately real here, each a separate substance beside Brahman."),
+
+    ("Zen Buddhism",
+     "Zen prizes direct seeing over doctrine. Zazen is sitting itself, not a means to a prize; the koan Mu is given to exhaust conceptual grasping. Awakening (satori) is sudden, pointing directly at mind.",
+     "In Zen, zazen is sitting itself and the koan Mu works by exhausting conceptual grasping.",
+     "In Zen, seated practice is a ladder of concepts and Mu is solved by careful logical analysis."),
+
+    ("Theravada Buddhism",
+     "Theravada marks all conditioned things with three characteristics: impermanence (anicca), unsatisfactoriness (dukkha), and not-self (anatta). Insight practice (vipassana) sees these directly, loosening clinging.",
+     "This path marks all conditioned things with impermanence, unsatisfactoriness, and not-self.",
+     "This path teaches an eternal permanent self behind experience, revealed once clinging ends."),
+
+    ("Sufism",
+     "In Sufism the aim is fana, the passing away of the ego-self in the Beloved, so that only God remains. The practice of dhikr, remembrance, polishes the heart until it reflects the divine like a clear mirror.",
+     "Fana here is the passing away of the ego in the Beloved, and dhikr polishes the heart.",
+     "Fana here is the strengthening of the separate ego, and dhikr is a debate proving God exists."),
+
+    ("Christian apophatic mysticism",
+     "The apophatic way approaches God by negation: no image or concept can contain the divine, so the soul enters a cloud of unknowing. Kenosis, self-emptying, makes room for a presence beyond all names.",
+     "This way approaches God by negation, entering a cloud of unknowing through self-emptying.",
+     "This way approaches God by exact definition, naming the divine fully through precise concepts."),
+
+    ("Taoism",
+     "The Tao that can be named is not the eternal Tao. The sage practices wu wei, effortless action aligned with the grain of things, and returns to the uncarved block, the simplicity before distinctions harden.",
+     "The sage here practices wu wei and returns to the uncarved block of original simplicity.",
+     "The sage here practices forceful striving and carves the block into ever finer distinctions."),
+
+    ("Kashmir Shaivism",
+     "Abhinavagupta describes the Heart (hrdaya) as the center that is full, not empty: in the gap between two thoughts, reality flashes forth. Contraction (samkoca) is not a wound but the Heart's own pulse.",
+     "For Abhinavagupta the gap between thoughts is full, and contraction is the Heart's own pulse.",
+     "For Abhinavagupta the gap between thoughts is a mere blankness, and contraction is a fall from grace."),
+
+    ("Dzogchen",
+     "In Dzogchen the ground (gzhi) is primordially pure and spontaneously present; it was never stained, so purification is really recognition. One does not transform the mind into rigpa; one recognizes what was always so.",
+     "Here the ground was never stained, so what looks like purification is really recognition.",
+     "Here the ground begins impure and must be transformed step by step into a rigpa it lacked."),
+
+    ("Advaita Vedanta",
+     "Shankara holds that the world of plurality is not false but provisional, appearing real under ignorance (avidya) and dissolving in the knowledge that the self is Brahman. Liberation is knowledge, not an event in time.",
+     "For Shankara liberation is knowledge that the self is Brahman, not an event in time.",
+     "For Shankara liberation is a future event earned by ritual works accumulated across many lives."),
+
+    ("Zen Buddhism",
+     "The finger pointing at the moon is not the moon. Zen warns against mistaking words and scriptures for realization; the teaching is a raft to be set down, useful for crossing but not to be carried on the head.",
+     "Zen warns against mistaking the pointing finger, words and scriptures, for realization itself.",
+     "Zen holds that the scriptures are themselves realization and must be carried and never set down."),
+
+    ("Sufism",
+     "Rumi sings that the reed flute wails because it was cut from the reed bed; the soul's longing is the ache of separation from its Source. The path turns that longing into love, and love into union.",
+     "Here the reed's wail is the soul's longing from separation, turned by the path into union.",
+     "Here the reed's wail is mere physical sound with no meaning, and the path seeks lasting separation."),
+
+    ("Theravada Buddhism",
+     "The Buddha declined metaphysical speculation as unhelpful, comparing it to a man shot by an arrow who refuses treatment until every detail of the archer is known. Practice, not theory, ends suffering.",
+     "Here metaphysical speculation is set aside as unhelpful; practice, not theory, ends suffering.",
+     "Here metaphysical speculation is required first, and no practice may begin until theory is complete."),
+
+    ("Taoism",
+     "Water is the Taoist emblem of power: soft and yielding, it wears away rock and takes the lowest place, yet nothing overcomes it. Strength that insists breaks; strength that yields endures.",
+     "Water here is the emblem of yielding power that wears rock and takes the lowest place.",
+     "Water here is the emblem of rigid force that shatters rock by striking from the highest place."),
+]
+
+
+def main():
+    out = []
+    for idx, (fam, passage, faithful, conflict) in enumerate(ITEMS):
+        for resp, claim, label in (("faithful", faithful, "faithful"),
+                                    ("conflict", conflict, "conflict")):
+            out.append({"source_id": f"spirit-{idx}", "response_id": resp,
+                        "claim_text": claim, "doc_excerpt": f"[{fam}] {passage}",
+                        "label": label, "split": "spiritual-ood", "family": fam})
+    with open("data/ft-claimlevel/spiritual-probe.jsonl", "w") as f:
+        for o in out:
+            f.write(json.dumps(o, ensure_ascii=False) + "\n")
+    fl = [len(o["claim_text"]) for o in out if o["label"] == "faithful"]
+    cl = [len(o["claim_text"]) for o in out if o["label"] == "conflict"]
+    import statistics as st
+    print(f"spiritual OOD probe: {len(out)} records across {len(set(o['family'] for o in out))} families")
+    print(f"  faithful claim len median {st.median(fl):.0f} · conflict median {st.median(cl):.0f} (length-matched)")
+
+
+if __name__ == "__main__":
+    main()
