@@ -14,13 +14,18 @@ This is the check that caught our own best-ever result being fake. It costs five
 logic. Steal it. Full story: tirtha.ai (or wherever this kit came from).
 """
 import argparse
+import hashlib
 import json
 import sys
 
 
 def load(path):
+    """Read the bytes ONCE, hash them, then parse — reading the file twice silently hashes empty
+    input on a pipe/process substitution (found by running it, 2026-07-06)."""
+    raw = open(path, "rb").read()
+    corpus_sha = hashlib.sha256(raw).hexdigest()[:16]
     rows = []
-    for i, line in enumerate(open(path, encoding="utf-8"), 1):
+    for i, line in enumerate(raw.decode("utf-8").splitlines(), 1):
         line = line.strip()
         if not line:
             continue
@@ -30,7 +35,7 @@ def load(path):
         rows.append((str(r["text"]), int(r["label"])))
     if not rows:
         sys.exit("no rows found")
-    return rows
+    return rows, corpus_sha
 
 
 def length_rule(rows):
@@ -87,9 +92,14 @@ def main():
     ap.add_argument("--model-score", type=float, default=None,
                     help="your model's accuracy on this same data (0-1); we'll flag if a shortcut matches it")
     args = ap.parse_args()
-    rows = load(args.data)
+    # The corpus hash: a score is a key cut for ONE snapshot of the data. A score claim that
+    # doesn't name the hash it was cut against is not re-checkable — and not-re-checkable
+    # defaults to UNVERIFIED, not to true. Quote this hash next to any number from this run.
+    rows, corpus_sha = load(args.data)
     n, pos = len(rows), sum(l for _, l in rows)
-    print(f"loaded {n} rows ({pos} positive, {n - pos} negative)\n")
+    print(f"loaded {n} rows ({pos} positive, {n - pos} negative)")
+    print(f"corpus sha256:{corpus_sha} — quote this next to any score from this data; "
+          f"a score without it has expired\n")
 
     results = [("majority class", *majority_rule(rows)),
                ("answer length", *length_rule(rows)),
@@ -107,8 +117,11 @@ def main():
             print("\n  VERDICT: VOID. A dumb rule matches your model. Your score measures the shortcut,\n"
                   "  not the task. Debias the benchmark (remove the separable feature) and re-run.")
         else:
-            print("\n  VERDICT: the model clears the trivial rules by a real margin. The score is\n"
-                  "  plausibly measuring the task. (Still read some rows by hand — labels lie too.)")
+            print("\n  VERDICT: NOT VOIDED. The model clears the trivial rules by a real margin.\n"
+                  "  Note the one-way valve: this tool can only ever SUBTRACT credibility, never\n"
+                  "  add it. A nonlinear tell (two features that only predict in combination) stays\n"
+                  "  invisible to trivial probes — silence here is not a certificate. Read some\n"
+                  "  rows by hand; labels lie too.")
 
 
 if __name__ == "__main__":

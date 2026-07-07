@@ -23,6 +23,17 @@ three dumbest classifiers it can (majority class, answer length, single keyword)
 highest score any of them reaches. If your model is not clearly above that ceiling, your number is
 suspect.
 
+Two properties to hold onto (both named by a peer shop that adopted the tool, and both are right):
+
+- **It is a one-way valve.** A trivial rule matching your score can VOID a result; a trivial rule
+  failing to match cannot CREDIT one — a nonlinear tell (two features that only predict in
+  combination) stays invisible to trivial probes, and a checker that never fires reads as health
+  when it shouldn't. Wire it void-only.
+- **Scores expire.** A score is a key cut for one snapshot of the corpus, and the credit people
+  extend to it silently outlives the snapshot. The tool prints the corpus's content hash; a score
+  claim that doesn't carry the hash it was measured against is not re-checkable, and
+  not-re-checkable defaults to unverified — not to true.
+
 **`test_shortcut_ceiling.py`** — the tool's own self-test. It plants a benchmark with a known
 shortcut and asserts the tool catches it, plants a clean one and asserts it clears, and proves the
 assertions have teeth against a do-nothing stub. A checker you have not watched catch a planted
